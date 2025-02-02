@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Analytical Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Data Visualization</h1>
+    <form id="filter-form">
+        <label for="filter-field">Select Field:</label>
+        <select id="filter-field">
+            <option value="">--Select--</option>
+            <option value="field1">Field 1</option>
+            <option value="field2">Field 2</option>
+            <option value="field3">Field 3</option>
+        </select>
+        <label for="start-date">Start Date:</label>
+        <input type="date" id="start-date" required>
+        <label for="end-date">End Date:</label>
+        <input type="date" id="end-date" required>
+        <button type="submit">Fetch Data</button>
+    </form>
+
+    <canvas id="chart"></canvas>
+
+    <form id="metricsForm">
+        <label for="metric-field">Select Field:</label>
+        <select id="metric-field" required>
+            <option value="">--Select--</option>
+            <option value="field1">Field 1</option>
+            <option value="field2">Field 2</option>
+            <option value="field3">Field 3</option>
+        </select>
+
+        <button type="submit">Get Metrics</button>
+    </form>
+
+    <div id="result" class="results">
+    </div>
+
+    <script>
+        document.getElementById('filter-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const field = document.getElementById('filter-field').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            const response = await fetch(`/api/measurements?field=${field}&start_date=${startDate}&end_date=${endDate}`);
+            const data = await response.json();
+
+            const labels = data.map(item => new Date(item.timestamp).toLocaleString());
+            const values = data.map(item => item[field]);
+
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            if (window.chartInstance) {
+                window.chartInstance.destroy();
+            }
+
+            window.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `Values for ${field}`,
+                        data: values,
+                        borderColor: 'blue',
+                        borderWidth: 2,
+                    }],
+                },
+            });
+        });
+
+
+
+        document.getElementById('metricsForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const field = document.getElementById('metric-field').value;
+            if (!field) {
+                alert("Please select a field.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/measurements/metrics?field=${field}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = `
+                        <h3>Metrics for ${field}</h3>
+                        <p><strong>Average:</strong> ${data.avg}</p>
+                        <p><strong>Min:</strong> ${data.min}</p>
+                        <p><strong>Max:</strong> ${data.max}</p>
+                        <p><strong>Standard Deviation:</strong> ${data.stdDev}</p>
+                    `;
+                    document.getElementById('metric-field').value = '';
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <p class="error">${data.error}</p>
+                    `;
+                }
+            } catch (err) {
+                document.getElementById('result').innerHTML = `
+                    <p class="error">An error occurred: ${err.message}</p>
+                `;
+            }
+        });
+    </script>
+</body>
+
+</html>
